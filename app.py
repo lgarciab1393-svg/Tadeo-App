@@ -1,55 +1,75 @@
 import streamlit as st
 import google.generativeai as genai
 
-# --- Configuración Inicial ---
+# --- Configuración de la Página ---
 st.set_page_config(page_title="Tadeo - Coach Ciclista", page_icon="🚴")
 
 # --- BUSCAR LA LLAVE SECRETA ---
 try:
-    # Tadeo busca la llave en la caja fuerte de Streamlit
     api_key = st.secrets["GOOGLE_API_KEY"]
 except:
-    st.error("⚠️ No se encontró la llave secreta. Configúrala en Streamlit Cloud > Settings > Secrets.")
+    st.error("⚠️ Falta la API Key. Configúrala en Streamlit Cloud > Settings > Secrets.")
     st.stop()
 
-# Configurar Google Gemini
 genai.configure(api_key=api_key)
-# Usamos el modelo rápido que sabemos que funciona en tu cuenta
-model = genai.GenerativeModel("gemini-2.0-flash", system_instruction="""
+
+# Instrucciones del Cerebro (Tadeo)
+system_instruction = """
 Eres Tadeo, un entrenador experto en ciclismo amateur.
-Tu tono es motivador, técnico pero accesible, y muy enfocado en datos.
-Responde siempre en español. Ayuda a crear planes, explicar métricas (FTP, VAM) y dar consejos de nutrición.
-""")
+Tu tono es motivador, técnico pero accesible (usando jerga ciclista como vatios, cadencia, 'chupar rueda').
+SIEMPRE responde en español.
+Tu objetivo es ayudar a crear planes, explicar métricas (FTP, V/Km) y dar consejos.
+Si el usuario es nuevo, pregúntale su edad, dispositivo (Garmin/Wahoo) y nivel.
+"""
+
+model = genai.GenerativeModel("gemini-2.0-flash", system_instruction=system_instruction)
 
 # --- Interfaz Gráfica ---
 st.title("🚴 Hola, soy Tadeo")
-st.write("Tu entrenador inteligente. Listo para rodar contigo.")
+st.markdown("Tu entrenador de **Inteligencia Artificial**. _Déjame ayudarte a romper tus PRs._")
 
-# Chat
+# Inicializar historial con un saludo estructurado
 if "messages" not in st.session_state:
     st.session_state.messages = []
-    st.session_state.messages.append({"role": "model", "content": "¡Hola! Ya tengo mis sensores listos y calibrados. ¿Qué entrenamiento tienes en mente para hoy?"})
+    # El saludo inicial del Robot
+    welcome_msg = """
+    ¡Hola! Ya tengo mis sensores calibrados ⚡.
+    
+    Para darte el mejor consejo, cuéntame un poco de ti:
+    1. ¿Qué edad tienes?
+    2. ¿Qué dispositivo usas? (Garmin, Wahoo, Celular...)
+    3. ¿Cuánto tiempo llevas montando bici?
+    """
+    st.session_state.messages.append({"role": "assistant", "content": welcome_msg})
 
-# Mostrar historial
+# Mostrar historial (Con iconos correctos)
 for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
+    # Si es "assistant" ponemos avatar de robot, si es usuario ponemos un ciclista o default
+    avatar = "🤖" if message["role"] == "assistant" else "👤"
+    with st.chat_message(message["role"], avatar=avatar):
         st.markdown(message["content"])
 
 # Capturar input del usuario
-if prompt := st.chat_input("Escribe aquí (Ej: Mañana quiero subir Patios en 25 min)..."):
-    with st.chat_message("user"):
-        st.markdown(prompt)
+if prompt := st.chat_input("Escribe aquí (Ej: Tengo 40 años y uso Garmin)..."):
+    # Guardar y mostrar mensaje del usuario
     st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user", avatar="👤"):
+        st.markdown(prompt)
 
     # Generar respuesta
-    with st.chat_message("model"):
-        with st.spinner("Analizando ruta y vatios... ⚡"):
+    with st.chat_message("assistant", avatar="🤖"):
+        with st.spinner("Analizando datos... ⚙️"):
             try:
-                chat = model.start_chat(history=[
-                    {"role": m["role"], "parts": [m["content"]]} for m in st.session_state.messages[:-1]
-                ])
+                # Traducir historial para Gemini (assistant -> model)
+                gemini_history = []
+                for m in st.session_state.messages[:-1]:
+                    role = "model" if m["role"] == "assistant" else "user"
+                    gemini_history.append({"role": role, "parts": [m["content"]]})
+
+                chat = model.start_chat(history=gemini_history)
                 response = chat.send_message(prompt)
+                
                 st.markdown(response.text)
-                st.session_state.messages.append({"role": "model", "content": response.text})
+                st.session_state.messages.append({"role": "assistant", "content": response.text})
             except Exception as e:
-                st.error(f"Hubo un error de conexión: {e}")
+                st.error(f"Se rompió la cadena: {e}")
