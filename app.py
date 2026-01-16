@@ -22,7 +22,8 @@ Tu objetivo es ayudar a crear planes, explicar métricas (FTP, V/Km) y dar conse
 Si el usuario es nuevo, pregúntale su edad, dispositivo (Garmin/Wahoo) y nivel.
 """
 
-model = genai.GenerativeModel("gemini-2.0-flash", system_instruction=system_instruction)
+# Cambiamos "gemini-2.0-flash" por este que aguanta más tráfico:
+model = genai.GenerativeModel("gemini-1.5-flash-latest", system_instruction=system_instruction)
 
 # --- Interfaz Gráfica ---
 st.title("🚴 Hola, soy Tadeo")
@@ -73,3 +74,4 @@ if prompt := st.chat_input("Escribe aquí (Ej: Tengo 40 años y uso Garmin)...")
                 st.session_state.messages.append({"role": "assistant", "content": response.text})
             except Exception as e:
                 st.error(f"Se rompió la cadena: {e}")
+
